@@ -1,0 +1,17 @@
+# Core
+python-dotenv
+langchain>=0.2.7
+langchain-community>=0.2.6
+
+# Google Gemini (LLM + Embeddings)
+google-genai>=0.3.0
+langchain-google-genai>=0.1.0
+
+# Vector store + IO
+chromadb>=0.5.0
+faiss-cpu>=1.8.0
+pypdf
+tiktoken
+
+# App
+chainlit>=1.1.0

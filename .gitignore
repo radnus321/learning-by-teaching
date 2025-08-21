@@ -1,0 +1,6 @@
+data/
+.env
+chat_memory.json
+.chainlit/
+vectorstore/
+__pycache__/
