@@ -1,5 +1,6 @@
 import json
 from config import MEMORY_FILE
+from student_chain import StudentResponse
 
 
 def load_memory():
@@ -13,30 +14,18 @@ def load_memory():
     return []
 
 
-def save_interaction(memory, teacher_explanation, student_response):
-    """Parse & store structured student response."""
-    try:
-        cleaned = student_response.strip()
-        if cleaned.startswith("```"):
-            cleaned = "\n".join(
-                line for line in cleaned.splitlines()
-                if not line.strip().startswith("```")
-            )
-        parsed = json.loads(cleaned)
-        questions = parsed.get("questions", [])
-        missing_points = parsed.get("missing_points", [])
-        rating = parsed.get("rating", "Unknown")
-    except json.JSONDecodeError:
-        questions, missing_points, rating = [], [], "Unknown"
-
-    memory.append({
+def save_interaction(memory, teacher_explanation: str, student_response):
+    """Save teacher explanation and structured student response."""
+    entry = {
         "teacher": teacher_explanation,
-        "student": {
-            "questions": questions,
-            "missing_points": missing_points,
-            "rating": rating
-        }
-    })
+        "student": student_response.dict()
+    }
+
+    print(entry)
+
+    memory.append(entry)
 
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memory, f, indent=2, ensure_ascii=False)
+
+    return entry
