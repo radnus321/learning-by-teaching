@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, confloat
 
 
 # -------------------------------
@@ -34,5 +34,11 @@ class EvaluatorResponse(BaseModel):
 # Scorer
 # -------------------------------
 class ScorerResponse(BaseModel):
-    value: int  # Numerical score (0-10, or scale we define)
-    feedback: str
+    overall_score: confloat(ge=0.0, le=1.0)
+    # Subscores (0.0 to 1.0)
+    teacher_clarity: confloat(ge=0.0, le=1.0)
+    teacher_completeness: confloat(ge=0.0, le=1.0)
+    student_understanding: confloat(ge=0.0, le=1.0)
+    student_engagement: confloat(ge=0.0, le=1.0)
+    # Comments are required, even if empty
+    comments: List[str]

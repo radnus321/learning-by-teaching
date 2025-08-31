@@ -15,8 +15,10 @@ Inputs:
 {expected_explanation}
 - Teacher’s explanation:
 {teacher_explanation}
-- Student’s questions list:
-{student_questions}
+- Student's initial question:
+{student_question}
+- Student's follow-up question based on the teacher's reponse, will be null if the student received accurate response
+{student_followup_question}
 - Student’s response:
 {student_response}
 
@@ -46,9 +48,6 @@ Respond ONLY in valid JSON, matching the following schema:
 
 def build_evaluator_chain():
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vs = Chroma(persist_directory=str(VS_DIR), embedding_function=embeddings)
-
     parser = PydanticOutputParser(pydantic_object=EvaluatorResponse)
     prompt = ChatPromptTemplate.from_template(
        evaluator_prompt
@@ -61,4 +60,4 @@ def build_evaluator_chain():
         verbose=True
     )
 
-    return chain, vs
+    return chain

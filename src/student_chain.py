@@ -4,9 +4,6 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
 from config import VS_DIR
-from pydantic import BaseModel, Field
-from typing import List, Optional
-from enum import Enum
 from models import StudentResponse
 
 student_prompt = """
