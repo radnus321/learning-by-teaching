@@ -22,10 +22,12 @@ class StudentResponse(BaseModel):
 # -------------------------------
 # Evaluator
 # -------------------------------
-class EvaluationResponse(BaseModel):
-    correctness: Literal["correct", "partial", "incorrect"]
-    missing_points: List[str]
-    feedback: str
+class EvaluatorResponse(BaseModel):
+    rating: str  # "excellent" | "good" | "partial" | "needs work" | "incorrect"
+    missing_points: Optional[List[str]] = []
+    incorrect_points: Optional[List[str]] = []
+    feedback: Optional[str] = None
+    referenced_points: Optional[List[str]] = []
 
 
 # -------------------------------
