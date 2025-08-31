@@ -7,25 +7,33 @@ from config import VS_DIR
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
+from models import StudentResponse
 
+student_prompt = """
+You are a curious student learning from the teacher. You do not have any prior knowledge of the topic other than the Student Context provided below.
 
-class RatingEnum(str, Enum):
-    UNDERSTOOD = "understood"
-    NEEDS_WORK = "needs work"
-    CONFUSED = "confused"
+Student Context:
+{student_memory}
 
+Teacher explanation:
+"{teacher_explanation}"
 
-class StudentResponse(BaseModel):
-    question: Optional[str] = Field(
-        None, description="A single follow-up question if the student is not fully satisfied"
-    )
-    missing_points: List[str] = Field(
-        default_factory=list,
-        description="Key gaps or missing explanations the student noticed"
-    )
-    rating: RatingEnum = Field(
-        ..., description="Student's self-assessment of understanding"
-    )
+Your task:
+- Decide how well you understood the explanation.
+  * Fully clear → rating = "understood", message = null
+  * Partially clear → rating = "needs work", ask ONE concise follow-up question
+  * Confused → rating = "confused", ask ONE clarifying question
+- Write a short reflection about your understanding in natural language, e.g., "I didn't understand sorting properly."
+- List missing points you noticed, if any.
+
+Respond ONLY in valid JSON that matches this schema:
+{{
+  "message": "Your follow-up question or null",
+  "rating": "understood|needs work|confused",
+  "reflection": "How you understood the concept",
+  "missing_points": ["point1", "point2"]
+}}
+"""
 
 
 def build_student_chain():
@@ -35,32 +43,8 @@ def build_student_chain():
     vs = Chroma(persist_directory=str(VS_DIR), embedding_function=embeddings)
     parser = PydanticOutputParser(pydantic_object=StudentResponse)
 
-    student_template = """
-    You are a curious student. Based on the teacher’s explanation and the context,
-    decide if you understood the concept or if you need clarification.
-
-    - If you understood fully → set rating = "understood" and do not ask a follow-up.
-    - If partially clear → set rating = "needs Work" and ask exactly ONE concise follow-up question.
-    - If confused → set rating = "confused" and ask exactly ONE clarifying question.
-
-    Respond ONLY in JSON valid for the StudentResponse model:
-    {{
-      "question": "Your one follow-up question, or null if none",
-      "missing_points": ["Point 1", "Point 2"],
-      "rating": "understood" | "needs work" | "confused"
-    }}
-
-    - The rating has a type enum and supports only 3 values: ["understood", "needs work", "confused"]
-
-    Context:
-    {context}
-
-    Teacher explanation:
-    {teacher_explanation}
-    """
-
     prompt = ChatPromptTemplate.from_template(
-        student_template
+        student_prompt
     ).partial(format_instructions=parser.get_format_instructions())
 
     chain = LLMChain(llm=llm, prompt=prompt, output_parser=parser)
