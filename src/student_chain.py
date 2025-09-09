@@ -3,7 +3,6 @@ from langchain_community.vectorstores import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
-from config import VS_DIR
 from models import StudentResponse
 
 student_prompt = """
@@ -33,17 +32,36 @@ Respond ONLY in valid JSON that matches this schema:
 """
 
 
-def build_student_chain():
-    """Return (LLM chain, vectorstore)."""
+def build_student_chain(topic: str, catalog: dict):
+    """Return (LLM chain, vectorstore) for a given topic using catalog path."""
+    # LLM
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
+
+    # Embeddings
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vs = Chroma(persist_directory=str(VS_DIR), embedding_function=embeddings)
+
+    # Get vectorstore path from catalog
+    topic_info = catalog.get(topic)
+    if not topic_info:
+        raise ValueError(f"Topic '{topic}' not found in catalog")
+
+    vs_path = topic_info["vectorstore_path"]
+
+    # Load Chroma for this topic
+    vs = Chroma(
+        persist_directory=vs_path,
+        embedding_function=embeddings
+    )
+
+    # Parser
     parser = PydanticOutputParser(pydantic_object=StudentResponse)
 
-    prompt = ChatPromptTemplate.from_template(
-        student_prompt
-    ).partial(format_instructions=parser.get_format_instructions())
+    # Prompt with parser format instructions
+    prompt = ChatPromptTemplate.from_template(student_prompt).partial(
+        format_instructions=parser.get_format_instructions()
+    )
 
+    # Chain
     chain = LLMChain(llm=llm, prompt=prompt, output_parser=parser)
 
     return chain, vs

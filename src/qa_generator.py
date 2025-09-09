@@ -5,6 +5,18 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.output_parsers import PydanticOutputParser
+from pathlib import Path
+
+
+CATALOG_PATH = Path(__file__).resolve(
+).parents[1] / "vectorstore" / "catalog.json"
+
+
+def load_catalog():
+    if CATALOG_PATH.exists():
+        with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 
 class QAPair(BaseModel):
@@ -37,8 +49,10 @@ def generate_initial_qa(vs, n: int = 10) -> List[QAPair]:
     # Prompt template
     template = """
     You are a curious student preparing questions about "learning by teaching".
-    Based on the following textbook context, generate a list of natural student
+    - Based on the following textbook context, generate a list of natural student
     questions and their accurate answers.
+    - Only ask questions which are technical and require conceptual knowledge.
+    - ** DO NOT ASK QUESTIONS WHICH REQUIRE MEMORIZATION OF THE MATERIAL **
 
     Each answer should be concise, factually correct, and directly address the question.
 

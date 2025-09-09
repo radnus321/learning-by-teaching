@@ -13,11 +13,14 @@ from dotenv import load_dotenv
 from student_chain import build_student_chain
 from evaluator_chain import build_evaluator_chain
 from scorer_chain import build_scorer_chain
-from qa_generator import generate_initial_qa
+from qa_generator import generate_initial_qa, load_catalog
 from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse
 from typing import Optional
+from pathlib import Path
+import json
 
 load_dotenv()
+CATALOG_PATH = Path(__file__).resolve().parents[1] / "vectorstore" / "catalog.json"
 
 
 # ------------------- AUTH ------------------- #
@@ -28,6 +31,8 @@ def oauth_callback(
     raw_user_data: dict,
     default_user: cl.User,
 ) -> Optional[cl.User]:
+    print("Provider: ", provider_id)
+    print("Raw user data: ", raw_user_data)
     if provider_id == "google":
         email = raw_user_data.get("email", "")
         if email.endswith("@pilani.bits-pilani.ac.in"):
@@ -38,30 +43,70 @@ def oauth_callback(
 # ------------------- CHAT START ------------------- #
 @cl.on_chat_start
 async def start():
-    """Initialize chains and QA pool."""
+    """Initialize session, show topics, and prepare Q&A after topic selection."""
     user = cl.user_session.get("user")
     await cl.Message(content=f"Welcome, {user.display_name or user.identifier}!").send()
 
-    student_chain, vs = build_student_chain()
+    # Load catalog
+    if not CATALOG_PATH.exists():
+        await cl.Message(content="⚠️ No catalog found. Please run ingestion first.").send()
+        return
+
+    with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+        catalog = json.load(f)
+
+    if not catalog:
+        await cl.Message(content="⚠️ Catalog is empty. Add some topics first.").send()
+        return
+
+    cl.user_session.set("catalog", catalog)
+
+    # Step 1: Student says hi
+    await cl.Message(content="👩‍🎓 Student: Hi! I’m ready to learn.").send()
+
+    # Step 2: List topics
+    topics_list = "\n".join(f"- {t}" for t in catalog.keys())
+    await cl.Message(
+        content=f"📚 Here are the available topics:\n{topics_list}\n\n"
+                f"👉 Please type the topic you’d like to start with."
+    ).send()
+
+    # Wait for user to select a topic
+    user_topic_msg = await cl.AskUserMessage(content="Which topic would you like to study?").send()
+    print(user_topic_msg)
+    user_topic = user_topic_msg["output"].strip()
+
+    if user_topic not in catalog:
+        await cl.Message(content=f"⚠️ '{user_topic}' is not a valid topic. Restart and try again.").send()
+        return
+
+    # Step 3: Build chains + vectorstore for chosen topic
+    student_chain, vs = build_student_chain(user_topic, catalog)
     evaluator_chain = build_evaluator_chain()
     scorer_chain = build_scorer_chain()
 
-    # Generate initial Q&A pool
+    # Step 4: Generate initial Q&A immediately
     qa_pool = generate_initial_qa(vs, n=5)
 
-    # Store in session
+    # Step 5: Store in session
     cl.user_session.set("student_chain", student_chain)
     cl.user_session.set("evaluator_chain", evaluator_chain)
     cl.user_session.set("scorer_chain", scorer_chain)
     cl.user_session.set("qa_pool", qa_pool)
     cl.user_session.set("qa_index", 0)
+    cl.user_session.set("topic", user_topic)
 
-    # Student initiates conversation
+    # Step 6: Kick off conversation
     if qa_pool:
         first_q = qa_pool[0].q
-        await cl.Message(content=f"👩‍🎓 Student: {first_q}").send()
+        await cl.Message(
+            content=f"👩‍🎓 Student: Great! Let’s start with {user_topic}. "
+                    f"Here’s my first question:\n\n{first_q}"
+        ).send()
     else:
-        await cl.Message(content="👩‍🎓 Student: I don’t have any questions yet.").send()
+        await cl.Message(
+            content=f"👩‍🎓 Student: I don’t have any questions for {user_topic} yet."
+        ).send()
 
 
 # ------------------- MAIN LOOP ------------------- #
@@ -98,8 +143,8 @@ async def main(message: cl.Message):
     qa_index = cl.user_session.get("qa_index", 0)
     # Fetch all previous interactions of this user
     user_interactions = interaction_collection.find(
-    {"user_id": user_id},
-    {"_id": 1}  # we only need the interaction IDs
+        {"user_id": user_id},
+        {"_id": 1}  # we only need the interaction IDs
     )
     interaction_ids = [i["_id"] for i in user_interactions]
 
@@ -158,7 +203,8 @@ async def main(message: cl.Message):
     if isinstance(evaluator_llm_response['text'], EvaluatorResponse):
         evaluator_model = evaluator_llm_response['text']
     else:
-        evaluator_model = EvaluatorResponse.parse_raw(evaluator_llm_response['text'])
+        evaluator_model = EvaluatorResponse.parse_raw(
+            evaluator_llm_response['text'])
 
     evaluator_collection.insert_one({
         "_id": interaction_id,
