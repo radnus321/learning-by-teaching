@@ -3,6 +3,5 @@ memory/
 .env
 chat_memory.json
 .chainlit/
-vectorstore/
 __pycache__/
 ./learning-by-teaching-123-firebase-adminsdk-fbsvc-965ed2ef8e.json

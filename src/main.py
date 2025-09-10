@@ -9,21 +9,23 @@ from db import (
 from datetime import datetime
 import uuid
 import chainlit as cl
+from chainlit.input_widget import Select
 from dotenv import load_dotenv
 from student_chain import build_student_chain
 from evaluator_chain import build_evaluator_chain
 from scorer_chain import build_scorer_chain
 from qa_generator import generate_initial_qa, load_catalog
-from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse
+from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse, get_llm
 from typing import Optional
 from pathlib import Path
 import json
 
 load_dotenv()
-CATALOG_PATH = Path(__file__).resolve().parents[1] / "vectorstore" / "catalog.json"
-
-
+CATALOG_PATH = Path(__file__).resolve(
+).parents[1] / "vectorstore" / "catalog.json"
 # ------------------- AUTH ------------------- #
+
+
 @cl.oauth_callback
 def oauth_callback(
     provider_id: str,
@@ -39,13 +41,46 @@ def oauth_callback(
             return default_user
     return None
 
+# ------------------- ON SETTINGS UPDATE ------------------- #
+
+
+@cl.on_settings_update
+async def setup_agent(settings):
+    current_model = settings["Model"]
+    print("Updated Model to: ", current_model)
+    llm = get_llm(current_model)
+    cl.user_session.set("llm", llm)
+    user_topic = cl.user_session.get("topic")
+    catalog = cl.user_session.get("catalog")
+    student_chain, vs = build_student_chain(llm, user_topic, catalog)
+    evaluator_chain = build_evaluator_chain(llm)
+    scorer_chain = build_scorer_chain(llm)
+    cl.user_session.set("student_chain", student_chain)
+    cl.user_session.set("evaluator_chain", evaluator_chain)
+    cl.user_session.set("scorer_chain", scorer_chain)
+
 
 # ------------------- CHAT START ------------------- #
+
+
 @cl.on_chat_start
 async def start():
     """Initialize session, show topics, and prepare Q&A after topic selection."""
     user = cl.user_session.get("user")
     await cl.Message(content=f"Welcome, {user.display_name or user.identifier}!").send()
+
+    settings = await cl.ChatSettings(
+        [
+            Select(
+                id="Model",
+                label="Select Model",
+                values=["openai/gpt-4o", "anthropic/claude-3.7-sonnet",
+                        "google/gemini-2.5-pro"],
+                initial_index=0
+            )
+        ]
+    ).send()
+    cl.user_session.set("llm", get_llm(settings["Model"]))
 
     # Load catalog
     if not CATALOG_PATH.exists():
@@ -64,26 +99,30 @@ async def start():
     # Step 1: Student says hi
     await cl.Message(content="👩‍🎓 Student: Hi! I’m ready to learn.").send()
 
-    # Step 2: List topics
-    topics_list = "\n".join(f"- {t}" for t in catalog.keys())
-    await cl.Message(
-        content=f"📚 Here are the available topics:\n{topics_list}\n\n"
-                f"👉 Please type the topic you’d like to start with."
+    # Step 2: Show topics as buttons
+    actions = [
+        cl.Action(name=t, payload={"value": t}, label=t) for t in catalog.keys()]
+    actions_res = await cl.AskActionMessage(
+        content="📚 Here are the available topics. Please choose one:",
+        actions=actions
     ).send()
 
-    # Wait for user to select a topic
-    user_topic_msg = await cl.AskUserMessage(content="Which topic would you like to study?").send()
-    print(user_topic_msg)
-    user_topic = user_topic_msg["output"].strip()
+    user_topic = ""
+    if actions_res and actions_res.get("payload").get("value"):
+        user_topic = actions_res.get("payload").get("value")
+
+    catalog = cl.user_session.get("catalog")
 
     if user_topic not in catalog:
         await cl.Message(content=f"⚠️ '{user_topic}' is not a valid topic. Restart and try again.").send()
         return
 
+    llm = cl.user_session.get("llm")
+
     # Step 3: Build chains + vectorstore for chosen topic
-    student_chain, vs = build_student_chain(user_topic, catalog)
-    evaluator_chain = build_evaluator_chain()
-    scorer_chain = build_scorer_chain()
+    student_chain, vs = build_student_chain(llm, user_topic, catalog)
+    evaluator_chain = build_evaluator_chain(llm)
+    scorer_chain = build_scorer_chain(llm)
 
     # Step 4: Generate initial Q&A immediately
     qa_pool = generate_initial_qa(vs, n=5)
@@ -100,12 +139,13 @@ async def start():
     if qa_pool:
         first_q = qa_pool[0].q
         await cl.Message(
-            content=f"👩‍🎓 Student: Great! Let’s start with {user_topic}. "
-                    f"Here’s my first question:\n\n{first_q}"
+            content=f"👩‍🎓 Student: Great! Let’s start with **{user_topic}**. "
+            f"Here’s my first question:\n\n{first_q}"
         ).send()
     else:
         await cl.Message(
-            content=f"👩‍🎓 Student: I don’t have any questions for {user_topic} yet."
+            content=f"👩‍🎓 Student: I don’t have any questions for {
+                user_topic} yet."
         ).send()
 
 
@@ -117,6 +157,10 @@ async def main(message: cl.Message):
     if not cl_user:
         await cl.Message(content="❌ User not authenticated.").send()
         return
+
+    model_choice = cl.user_session.get("model", "gemini-1.5-flash")
+
+    print(model_choice)
 
     # Extract normalized fields
     user_id = cl_user.identifier

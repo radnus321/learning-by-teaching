@@ -1,10 +1,25 @@
+import os
 from typing import List, Optional, Literal
 from pydantic import BaseModel, confloat
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
+API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+
+def get_llm(model_name: str):
+    return ChatOpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=API_KEY,
+        model=f"{model_name}"
+    )
 
 # -------------------------------
 # Teacher
 # -------------------------------
+
+
 class TeacherResponse(BaseModel):
     message: str  # Explanation of the concept
 
@@ -13,7 +28,8 @@ class TeacherResponse(BaseModel):
 # Student
 # -------------------------------
 class StudentResponse(BaseModel):
-    message: Optional[str]  # Follow-up question, can be null if fully understood
+    # Follow-up question, can be null if fully understood
+    message: Optional[str]
     rating: Literal["understood", "needs work", "confused"]
     reflection: str  # Student’s meta-understanding: e.g. "I didn’t understand sorting properly."
     missing_points: List[str] = []  # Gaps in knowledge

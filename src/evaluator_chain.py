@@ -46,8 +46,8 @@ Respond ONLY in valid JSON, matching the following schema:
 """
 
 
-def build_evaluator_chain():
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
+def build_evaluator_chain(llm):
+    # llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
     parser = PydanticOutputParser(pydantic_object=EvaluatorResponse)
     prompt = ChatPromptTemplate.from_template(
        evaluator_prompt

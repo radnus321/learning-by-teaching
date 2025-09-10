@@ -5,9 +5,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm  # add this at the top
 
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
 # Paths
@@ -24,13 +24,15 @@ def load_documents(topic_dir: Path):
     txt_paths = glob.glob(str(topic_dir / "*.txt"))
     md_paths = glob.glob(str(topic_dir / "*.md"))
 
-    print(f"[ingest] Found {len(pdf_paths)} PDFs, {len(txt_paths)} TXTs, {len(md_paths)} MDs in {topic_dir}")
+    print(f"[ingest] Found {len(pdf_paths)} PDFs, {
+          len(txt_paths)} TXTs, {len(md_paths)} MDs in {topic_dir}")
 
     for p in pdf_paths:
         try:
             print(f"[ingest] Loading PDF: {p}")
             pages = PyPDFLoader(p).load()
-            print(f"[ingest]   -> Loaded {len(pages)} pages from {Path(p).name}")
+            print(f"[ingest]   -> Loaded {len(pages)
+                                          } pages from {Path(p).name}")
             docs.extend(pages)
         except Exception as e:
             print(f"[ingest] Failed to load PDF {p}: {e}")
@@ -39,7 +41,8 @@ def load_documents(topic_dir: Path):
         try:
             print(f"[ingest] Loading text file: {p}")
             texts = TextLoader(p, encoding="utf-8").load()
-            print(f"[ingest]   -> Loaded {len(texts)} document(s) from {Path(p).name}")
+            print(f"[ingest]   -> Loaded {len(texts)
+                                          } document(s) from {Path(p).name}")
             docs.extend(texts)
         except Exception as e:
             print(f"[ingest] Failed to load text {p}: {e}")
@@ -57,13 +60,15 @@ def split_docs(docs, topic: str):
         is_separator_regex=False,
     )
     splits = splitter.split_documents(docs)
-    print(f"[ingest] Split {len(docs)} documents into {len(splits)} chunks for topic={topic}")
+    print(f"[ingest] Split {len(docs)} documents into {
+          len(splits)} chunks for topic={topic}")
     return splits
 
 
 def build_vectorstore(splits, topic: str, batch_size: int = 64):
     """Embed chunks with Gemini and store in Chroma under a topic folder with progress bar."""
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2")
     topic_vs_dir = VS_DIR / topic
 
     print(f"[ingest] Building vectorstore for topic={topic} at {topic_vs_dir}")
@@ -78,9 +83,9 @@ def build_vectorstore(splits, topic: str, batch_size: int = 64):
         vs.add_documents(batch)
 
     vs.persist()
-    print(f"[ingest]   -> Vectorstore built with {len(splits)} chunks for {topic}")
+    print(
+        f"[ingest]   -> Vectorstore built with {len(splits)} chunks for {topic}")
     return vs
-
 
 
 def update_catalog(topics):
@@ -129,7 +134,8 @@ def main():
         splits = split_docs(docs, topic)
         _ = build_vectorstore(splits, topic)
 
-        print(f"[ingest] Finished processing topic {topic}: {len(docs)} docs → {len(splits)} chunks")
+        print(f"[ingest] Finished processing topic {topic}: {
+              len(docs)} docs → {len(splits)} chunks")
         processed_topics.append(topic)
 
     if processed_topics:

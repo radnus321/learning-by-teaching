@@ -44,9 +44,9 @@ evaluator_comments: {evaluator_comments}
 """
 
 
-def build_scorer_chain():
+def build_scorer_chain(llm):
     """Build the LLM chain for scoring interactions."""
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
+    # llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
     parser = PydanticOutputParser(pydantic_object=ScorerResponse)
 
     prompt = ChatPromptTemplate.from_template(scorer_prompt).partial(
