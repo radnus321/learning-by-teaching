@@ -1,35 +1,21 @@
-# Core app framework
-chainlit>=1.1.301
+# Core project dependencies
+chainlit==2.7.2
+pymongo==4.8.0
+python-dotenv==1.0.1
+tqdm==4.67.1
 
-# LangChain + community integrations
-langchain>=0.2.14
-langchain-community>=0.2.12
-langchain-core>=0.2.38
+# LangChain ecosystem
+langchain==0.3.27
+langchain-community==0.3.29
+langchain-google-genai==2.0.7
+langchain-huggingface==0.0.3
+chromadb==1.0.20
 
-# Vector store (ChromaDB)
-chromadb>=0.5.5
+# ML/Embeddings
+sentence-transformers==2.7.0
+torch==2.2.2+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+transformers==4.45.2
+scikit-learn==1.5.2
 
-# Embeddings
-sentence-transformers>=3.0.1
-transformers>=4.43.1
-
-# HuggingFace
-huggingface-hub>=0.24.6
-
-# Google OAuth
-google-auth>=2.34.0
-google-auth-oauthlib>=1.2.1
-google-api-python-client>=2.139.0
-
-# MongoDB
-pymongo>=4.8.0
-
-# Utils
-python-dotenv>=1.0.1
-requests>=2.32.3
-tqdm>=4.66.5
-
-# Optional (for async, parsing, etc.)
-aiohttp>=3.9.5
-uvicorn>=0.30.3
-fastapi>=0.112.0
+# Validation
+pydantic==2.9.2

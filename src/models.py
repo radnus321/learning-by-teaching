@@ -1,9 +1,7 @@
 import os
 from typing import List, Optional, Literal
 from pydantic import BaseModel, confloat
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 

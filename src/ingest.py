@@ -3,7 +3,7 @@ import glob
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from tqdm import tqdm  # add this at the top
+from tqdm import tqdm
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader, TextLoader

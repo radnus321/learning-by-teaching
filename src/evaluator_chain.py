@@ -1,9 +1,6 @@
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
-from config import VS_DIR
 from models import EvaluatorResponse 
 
 evaluator_prompt= """

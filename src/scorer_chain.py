@@ -1,4 +1,3 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
