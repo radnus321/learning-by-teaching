@@ -1,15 +1,17 @@
+import os
 import json
+from dotenv import load_dotenv
 from typing import List
 from pydantic import BaseModel
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.output_parsers import PydanticOutputParser
 from pathlib import Path
 
 
-CATALOG_PATH = Path(__file__).resolve(
-).parents[1] / "vectorstore" / "catalog.json"
+load_dotenv()
+VS_DIR = os.getenv("VS_DIR")
+CATALOG_PATH = Path(VS_DIR + "/catalog.json")
 
 
 def load_catalog():

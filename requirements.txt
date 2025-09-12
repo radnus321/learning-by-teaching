@@ -1,21 +1,19 @@
-# Core project dependencies
-chainlit==2.7.2
-pymongo==4.8.0
-python-dotenv==1.0.1
-tqdm==4.67.1
+# Core
+python-dotenv
+pymongo
+tqdm
 
 # LangChain ecosystem
-langchain==0.3.27
-langchain-community==0.3.29
-langchain-google-genai==2.0.7
-langchain-huggingface==0.0.3
-chromadb==1.0.20
+langchain
+langchain-community
+langchain-core
+langchain-openai
 
-# ML/Embeddings
-sentence-transformers==2.7.0
-torch==2.2.2+cpu --extra-index-url https://download.pytorch.org/whl/cpu
-transformers==4.45.2
-scikit-learn==1.5.2
+# Vector database
+chromadb
 
-# Validation
-pydantic==2.9.2
+# Chainlit
+chainlit
+
+# Pydantic
+pydantic

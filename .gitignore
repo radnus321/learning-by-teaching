@@ -1,4 +1,5 @@
 data/
+vectorstore/
 memory/
 .env
 chat_memory.json

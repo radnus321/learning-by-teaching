@@ -1,5 +1,5 @@
 import os
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
@@ -39,12 +39,8 @@ Respond ONLY in valid JSON that matches this schema:
 
 def build_student_chain(llm, topic: str, catalog: dict):
     """Return (LLM chain, vectorstore) for a given topic using catalog path."""
-    # # LLM
-    # llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
-
     # Embeddings
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
     # Get vectorstore path from catalog
     topic_info = catalog.get(topic)

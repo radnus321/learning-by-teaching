@@ -5,14 +5,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
 
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
 # Paths
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-VS_DIR = Path(__file__).resolve().parents[1] / "vectorstore"
+load_dotenv()
+DATA_DIR = os.getenv("DATA_DIR", Path(__file__).resolve().parents[1] / "data")
+VS_DIR = VS_DIR = Path(os.getenv("VS_DIR", Path(__file__).resolve().parents[1] / "vectorstore"))
 CATALOG_PATH = VS_DIR / "catalog.json"
 
 
@@ -66,9 +67,7 @@ def split_docs(docs, topic: str):
 
 
 def build_vectorstore(splits, topic: str, batch_size: int = 64):
-    """Embed chunks with Gemini and store in Chroma under a topic folder with progress bar."""
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     topic_vs_dir = VS_DIR / topic
 
     print(f"[ingest] Building vectorstore for topic={topic} at {topic_vs_dir}")

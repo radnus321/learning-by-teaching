@@ -1,3 +1,4 @@
+import os
 from db import (
     users_collection,
     interaction_collection,
@@ -21,8 +22,8 @@ from pathlib import Path
 import json
 
 load_dotenv()
-CATALOG_PATH = Path(__file__).resolve(
-).parents[1] / "vectorstore" / "catalog.json"
+VS_DIR = VS_DIR = Path(os.getenv("VS_DIR", Path(__file__).resolve().parents[1] / "vectorstore"))
+CATALOG_PATH = VS_DIR / "catalog.json"
 # ------------------- AUTH ------------------- #
 
 
