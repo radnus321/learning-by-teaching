@@ -1,4 +1,3 @@
-data/
 vectorstore/
 memory/
 .env
