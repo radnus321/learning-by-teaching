@@ -58,8 +58,7 @@ def split_docs(docs, topic: str):
         is_separator_regex=False,
     )
     splits = splitter.split_documents(docs)
-    print(f"[ingest] Split {len(docs)} documents into {
-          len(splits)} chunks for topic={topic}")
+    print(f"[ingest] Split {len(docs)} documents into {len(splits)} chunks for topic={topic}")
     return splits
 
 
@@ -130,8 +129,7 @@ def main():
         splits = split_docs(docs, topic)
         _ = build_vectorstore(splits, topic)
 
-        print(f"[ingest] Finished processing topic {topic}: {
-              len(docs)} docs → {len(splits)} chunks")
+        print(f"[ingest] Finished processing topic {topic}: {len(docs)} docs → {len(splits)} chunks")
         processed_topics.append(topic)
 
     if processed_topics:
