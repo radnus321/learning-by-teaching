@@ -145,8 +145,7 @@ async def start():
         ).send()
     else:
         await cl.Message(
-            content=f"👩‍🎓 Student: I don’t have any questions for {
-                user_topic} yet."
+            content=f"👩‍🎓 Student: I don’t have any questions for {user_topic} yet."
         ).send()
 
 
