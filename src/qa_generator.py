@@ -30,7 +30,7 @@ class QAList(BaseModel):
     questions: List[QAPair]
 
 
-def generate_initial_qa(vs, n: int = 10) -> List[QAPair]:
+def generate_initial_qa(llm, vs, n: int = 10) -> List[QAPair]:
     """
     Generate initial Q&A pairs from vectorDB content.
 
@@ -69,7 +69,6 @@ def generate_initial_qa(vs, n: int = 10) -> List[QAPair]:
     prompt = ChatPromptTemplate.from_template(template).partial(
         format_instructions=parser.get_format_instructions()
     )
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.4)
     chain = LLMChain(llm=llm, prompt=prompt)
 
     # Run

@@ -25,15 +25,13 @@ def load_documents(topic_dir: Path):
     txt_paths = glob.glob(str(topic_dir / "*.txt"))
     md_paths = glob.glob(str(topic_dir / "*.md"))
 
-    print(f"[ingest] Found {len(pdf_paths)} PDFs, {
-          len(txt_paths)} TXTs, {len(md_paths)} MDs in {topic_dir}")
+    print(f"[ingest] Found {len(pdf_paths)} PDFs, {len(txt_paths)} TXTs, {len(md_paths)} MDs in {topic_dir}")
 
     for p in pdf_paths:
         try:
             print(f"[ingest] Loading PDF: {p}")
             pages = PyPDFLoader(p).load()
-            print(f"[ingest]   -> Loaded {len(pages)
-                                          } pages from {Path(p).name}")
+            print(f"[ingest]   -> Loaded {len(pages)} pages from {Path(p).name}")
             docs.extend(pages)
         except Exception as e:
             print(f"[ingest] Failed to load PDF {p}: {e}")
@@ -42,8 +40,7 @@ def load_documents(topic_dir: Path):
         try:
             print(f"[ingest] Loading text file: {p}")
             texts = TextLoader(p, encoding="utf-8").load()
-            print(f"[ingest]   -> Loaded {len(texts)
-                                          } document(s) from {Path(p).name}")
+            print(f"[ingest]   -> Loaded {len(texts)} document(s) from {Path(p).name}")
             docs.extend(texts)
         except Exception as e:
             print(f"[ingest] Failed to load text {p}: {e}")

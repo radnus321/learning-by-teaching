@@ -2,6 +2,7 @@
 python-dotenv
 pymongo
 tqdm
+pypdf
 
 # LangChain ecosystem
 langchain

@@ -126,7 +126,7 @@ async def start():
     scorer_chain = build_scorer_chain(llm)
 
     # Step 4: Generate initial Q&A immediately
-    qa_pool = generate_initial_qa(vs, n=5)
+    qa_pool = generate_initial_qa(llm, vs, n=5)
 
     # Step 5: Store in session
     cl.user_session.set("student_chain", student_chain)
