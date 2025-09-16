@@ -1,12 +1,4 @@
 import os
-from db import (
-    users_collection,
-    interaction_collection,
-    teacher_collection,
-    student_collection,
-    evaluator_collection,
-    scorer_collection,
-)
 from datetime import datetime
 import uuid
 import chainlit as cl
@@ -15,11 +7,24 @@ from dotenv import load_dotenv
 from student_chain import build_student_chain
 from evaluator_chain import build_evaluator_chain
 from scorer_chain import build_scorer_chain
-from qa_generator import generate_initial_qa, load_catalog
 from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse, get_llm
+from langchain.memory import ConversationBufferMemory
 from typing import Optional
 from pathlib import Path
 import json
+from memory import (
+        create_user,
+        create_session,
+        create_interaction,
+        save_student,
+        save_teacher,
+        save_evaluator,
+        save_scorer,
+        fetch_session_interaction_ids,
+        fetch_student_memory,
+)
+from qa_generator import generate_qa_for_subtopic, generate_subtopics, load_catalog
+
 
 load_dotenv()
 VS_DIR = VS_DIR = Path(os.getenv("VS_DIR", Path(__file__).resolve().parents[1] / "vectorstore"))
@@ -61,13 +66,29 @@ async def setup_agent(settings):
     cl.user_session.set("scorer_chain", scorer_chain)
 
 
-# ------------------- CHAT START ------------------- #
+# ------------------- ON CHAT RESUME --------------- #
+@cl.on_chat_resume
+async def on_chat_resume(thread):
+    session_memory = ConversationBufferMemory(return_messages=True)
+    root_messages = [m for m in thread["steps"] if m["parentId"] == None]
+    for message in root_messages:
+        if message["type"] == "user_message":
+            session_memory.chat_memory.add_user_message(message["output"])
+        else:
+            session_memory.chat_memory.add_ai_message(message["output"])
 
+    cl.user_session.set("session_memory", session_memory)
+
+
+# ------------------- CHAT START ------------------- #
 
 @cl.on_chat_start
 async def start():
-    """Initialize session, show topics, and prepare Q&A after topic selection."""
+    """Initialize session, show topics, generate subtopics, and prepare Q&A."""
     user = cl.user_session.get("user")
+    session_id = create_session(user.identifier)
+    cl.user_session.set("session_id", session_id)
+    cl.user_session.set("session_memory", ConversationBufferMemory(return_messages=True))
     await cl.Message(content=f"Welcome, {user.display_name or user.identifier}!").send()
 
     settings = await cl.ChatSettings(
@@ -97,12 +118,8 @@ async def start():
 
     cl.user_session.set("catalog", catalog)
 
-    # Step 1: Student says hi
-    await cl.Message(content="👩‍🎓 Student: Hi! I’m ready to learn.").send()
-
-    # Step 2: Show topics as buttons
-    actions = [
-        cl.Action(name=t, payload={"value": t}, label=t) for t in catalog.keys()]
+    # Step 1: Show main topics
+    actions = [cl.Action(name=t, payload={"value": t}, label=t) for t in catalog.keys()]
     actions_res = await cl.AskActionMessage(
         content="📚 Here are the available topics. Please choose one:",
         actions=actions
@@ -112,41 +129,61 @@ async def start():
     if actions_res and actions_res.get("payload").get("value"):
         user_topic = actions_res.get("payload").get("value")
 
-    catalog = cl.user_session.get("catalog")
-
     if user_topic not in catalog:
         await cl.Message(content=f"⚠️ '{user_topic}' is not a valid topic. Restart and try again.").send()
         return
 
     llm = cl.user_session.get("llm")
 
-    # Step 3: Build chains + vectorstore for chosen topic
+    # Step 2: Build chains + vectorstore for chosen topic
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
-    evaluator_chain = build_evaluator_chain(llm)
-    scorer_chain = build_scorer_chain(llm)
-
-    # Step 4: Generate initial Q&A immediately
-    qa_pool = generate_initial_qa(llm, vs, n=5)
-
-    # Step 5: Store in session
     cl.user_session.set("student_chain", student_chain)
-    cl.user_session.set("evaluator_chain", evaluator_chain)
-    cl.user_session.set("scorer_chain", scorer_chain)
+
+    # Step 3: Generate subtopics (ONE API call)
+    subtopics = generate_subtopics(llm, vs)  # returns list of 10 standard subtopics
+    cl.user_session.set("subtopics", subtopics)
+
+    # Step 4: Show subtopics to user and let them choose
+    subtopic_actions = [cl.Action(name=s, payload={"value": s}, label=s) for s in subtopics]
+    subtopic_res = await cl.AskActionMessage(
+        content=f"📖 Here are the subtopics for **{user_topic}**. Please choose one:",
+        actions=subtopic_actions
+    ).send()
+
+    chosen_subtopic = ""
+    if subtopic_res and subtopic_res.get("payload").get("value"):
+        chosen_subtopic = subtopic_res.get("payload").get("value")
+
+    if chosen_subtopic not in subtopics:
+        await cl.Message(content=f"⚠️ '{chosen_subtopic}' is not a valid subtopic. Restart and try again.").send()
+        return
+
+    # Step 5: Generate student doubts/questions for the chosen subtopic (ONE API call)
+    qa_pool = generate_qa_for_subtopic(llm, vs, chosen_subtopic)  # returns list of QAPair
+
+    # Step 6: Store in session
     cl.user_session.set("qa_pool", qa_pool)
     cl.user_session.set("qa_index", 0)
     cl.user_session.set("topic", user_topic)
+    cl.user_session.set("subtopic", chosen_subtopic)
+    session_memory = cl.user_session.get("session_memory")
 
-    # Step 6: Kick off conversation
+    # Step 7: Kick off conversation
     if qa_pool:
-        first_q = qa_pool[0].q
-        await cl.Message(
-            content=f"👩‍🎓 Student: Great! Let’s start with **{user_topic}**. "
-            f"Here’s my first question:\n\n{first_q}"
-        ).send()
+        first_q = qa_pool[0].question
+        message = cl.Message(
+            content=f"👩‍🎓 Student: Great! Let’s start with **{chosen_subtopic}**. "
+                    f"Here’s my first question:\n\n{first_q}"
+        )
+        await message.send()
+        session_memory.chat_memory.add_ai_message(message.content)
     else:
-        await cl.Message(
-            content=f"👩‍🎓 Student: I don’t have any questions for {user_topic} yet."
-        ).send()
+        message = cl.Message(
+            content=f"👩‍🎓 Student: I don’t have any questions for {chosen_subtopic} yet."
+        )
+        await message.send()
+        session_memory.chat_memory.add_ai_message(message.content)
+
 
 
 # ------------------- MAIN LOOP ------------------- #
@@ -154,6 +191,8 @@ async def start():
 async def main(message: cl.Message):
     """Handle teacher input, student response, evaluation, and scoring."""
     cl_user = cl.user_session.get("user")  # Chainlit User object
+    session_id = cl.user_session.get("session_id")
+    session_memory = cl.user_session.get("session_memory")
     if not cl_user:
         await cl.Message(content="❌ User not authenticated.").send()
         return
@@ -168,16 +207,7 @@ async def main(message: cl.Message):
     user_name = getattr(cl_user, "display_name", None)
 
     # Ensure user exists in DB
-    users_collection.update_one(
-        {"_id": user_id},
-        {"$setOnInsert": {
-            "_id": user_id,
-            "email": user_email,
-            "name": user_name,
-            "created_at": datetime.utcnow()
-        }},
-        upsert=True
-    )
+    create_user(user_id, user_email, user_name)
 
     # Load session state
     student_chain = cl.user_session.get("student_chain")
@@ -185,39 +215,21 @@ async def main(message: cl.Message):
     scorer_chain = cl.user_session.get("scorer_chain")
     qa_pool = cl.user_session.get("qa_pool", [])
     qa_index = cl.user_session.get("qa_index", 0)
-    # Fetch all previous interactions of this user
-    user_interactions = interaction_collection.find(
-        {"user_id": user_id},
-        {"_id": 1}  # we only need the interaction IDs
-    )
-    interaction_ids = [i["_id"] for i in user_interactions]
+    # Fetch all previous interactions of this session 
+    session_interaction_ids = fetch_session_interaction_ids(session_id)
 
     # Create new interaction entry
-    interaction_id = str(uuid.uuid4())
-    interaction_collection.insert_one({
-        "_id": interaction_id,
-        "user_id": user_id,
-        "timestamp": datetime.utcnow()
-    })
+    interaction_id = create_interaction(session_id)
 
     # 1️⃣ Teacher provides explanation
     teacher_explanation = message.content
     teacher_model = TeacherResponse(message=teacher_explanation)
-    teacher_collection.insert_one({
-        "_id": interaction_id,
-        **teacher_model.dict(),
-        "timestamp": datetime.utcnow()
-    })
+    save_teacher(interaction_id, teacher_model)
+    session_memory.chat_memory.add_user_message(teacher_explanation)
 
     # Expected answer from QA pool
     expected_answer = qa_pool[qa_index].a if qa_index < len(qa_pool) else ""
-    # Fetch all student responses for these interactions
-    student_memory_docs = student_collection.find(
-        {"_id": {"$in": interaction_ids}}
-    )
-
-    # Convert to a list of dicts or models
-    student_memory = [StudentResponse(**doc) for doc in student_memory_docs]
+    student_memory = fetch_student_memory(session_interaction_ids)
     # 2️⃣ Student generates response
     student_llm_response = student_chain.invoke({
         "teacher_explanation": teacher_explanation,
@@ -229,11 +241,7 @@ async def main(message: cl.Message):
     else:
         student_model = StudentResponse.parse_raw(student_llm_response['text'])
 
-    student_collection.insert_one({
-        "_id": interaction_id,
-        **student_model.dict(),
-        "timestamp": datetime.utcnow()
-    })
+    save_student(interaction_id, student_model)
 
     # 3️⃣ Evaluator assesses
     evaluator_llm_response = evaluator_chain.invoke({
@@ -250,11 +258,8 @@ async def main(message: cl.Message):
         evaluator_model = EvaluatorResponse.parse_raw(
             evaluator_llm_response['text'])
 
-    evaluator_collection.insert_one({
-        "_id": interaction_id,
-        **evaluator_model.dict(),
-        "timestamp": datetime.utcnow()
-    })
+    save_evaluator(interaction_id, evaluator_model)
+
 
     # 4️⃣ Scorer computes metrics
     scorer_llm_response = scorer_chain.invoke({
@@ -270,17 +275,17 @@ async def main(message: cl.Message):
     else:
         scorer_model = ScorerResponse.parse_raw(scorer_llm_response)
 
-    scorer_collection.insert_one({
-        "_id": interaction_id,
-        **scorer_model.dict(),
-        "timestamp": datetime.utcnow()
-    })
+    save_scorer(interaction_id, scorer_model)
 
     # 5️⃣ Continue conversation
     if student_model.message:
-        await cl.Message(content=f"👩‍🎓 Student: {student_model.message}").send()
+        message = cl.Message(content=f"👩‍🎓 Student: {student_model.message}")
+        await message.send()
+        session_memory.chat_memory.add_ai_message(message.content)
     else:
-        await cl.Message(content="👩‍🎓 Student: I think I understood this topic.").send()
+        message = cl.Message(content="👩‍🎓 Student: I think I understood this topic.")
+        await message.send()
+        session_memory.chat_memory.add_ai_message(message.content)
         qa_index += 1
         cl.user_session.set("qa_index", qa_index)
         if qa_index < len(qa_pool):

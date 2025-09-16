@@ -2,7 +2,9 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
 from models import ScorerResponse
+from dotenv import load_dotenv 
 
+load_dotenv()
 
 scorer_prompt = """
 You are an automated scorer for a teaching-learning interaction.

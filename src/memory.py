@@ -2,60 +2,48 @@ import uuid
 import json
 from pathlib import Path
 from pydantic import BaseModel
-import datetime
+from datetime import datetime
 from db import (
+    users_collection,
     interaction_collection,
     teacher_collection,
     student_collection,
     evaluator_collection,
     scorer_collection,
+    session_collection
 )
-
-MEMORY_DIR = Path("memory")
-MEMORY_DIR.mkdir(exist_ok=True)
-FILES = {
-    "teacher": MEMORY_DIR / "teacher.json",
-    "student": MEMORY_DIR / "student.json",
-    "evaluator": MEMORY_DIR / "evaluator.json",
-    "scorer": MEMORY_DIR / "scorer.json",
-}
+from models import StudentResponse
 
 
-def load_memory(agent: str):
-    file = FILES[agent]
-    if not file.exists():
-        return []
-    return json.loads(file.read_text(encoding="utf-8"))
+def create_user(user_id, user_email, user_name):
+    users_collection.update_one(
+        {"_id": user_id},
+        {"$setOnInsert": {
+            "_id": user_id,
+            "email": user_email,
+            "name": user_name,
+            "created_at": datetime.utcnow()
+        }},
+        upsert=True
+    )
 
 
-def save_interaction(agent: str, model: BaseModel, interaction_id: str = None):
-    """Save validated agent response to its memory file."""
-    interaction_id = interaction_id or str(uuid.uuid4())
-    file = FILES[agent]
-
-    # load existing
-    if file.exists():
-        memory = json.loads(file.read_text(encoding="utf-8"))
-    else:
-        memory = []
-
-    # append validated dict
-    memory.append({
-        "interaction_id": interaction_id,
-        agent: model.dict()
+def create_session(user_id: str):
+    session_id = str(uuid.uuid4())
+    session_collection.insert_one({
+        "_id": session_id,
+        "user_id": user_id,
+        "timestamp": datetime.utcnow()
     })
-
-    file.write_text(json.dumps(memory, indent=2,
-                    ensure_ascii=False), encoding="utf-8")
-    return interaction_id
+    return session_id
 
 
-def create_interaction(user_id: str) -> str:
+def create_interaction(session_id: str) -> str:
     """Create a new interaction entry for a user."""
     interaction_id = str(uuid.uuid4())
     interaction_collection.insert_one({
         "_id": interaction_id,
-        "user_id": user_id,
+        "session_id": session_id,
         "timestamp": datetime.utcnow()
     })
     return interaction_id
@@ -91,3 +79,20 @@ def save_scorer(interaction_id: str, model: BaseModel):
         **model.dict(),
         "timestamp": datetime.utcnow()
     })
+
+
+def fetch_session_interaction_ids(session_id: str):
+    session_interactions = interaction_collection.find(
+        {"session_id": session_id},
+        {"_id": 1}
+    )
+    interaction_ids = [i["_id"] for i in session_interactions]
+    return interaction_ids
+
+
+def fetch_student_memory(session_interaction_ids: list):
+    student_memory_docs = student_collection.find(
+        {"_id": {"$in": session_interaction_ids}}
+    )
+    student_memory = [StudentResponse(**doc) for doc in student_memory_docs]
+    return student_memory

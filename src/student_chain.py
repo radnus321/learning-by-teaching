@@ -5,8 +5,9 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
 from models import StudentResponse
+from dotenv import load_dotenv 
 
-API_KEY = os.getenv("OPENROUTER_API_KEY")
+load_dotenv()
 
 student_prompt = """
 You are a curious student learning from the teacher. You do not have any prior knowledge of the topic other than the Student Context provided below.
