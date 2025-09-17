@@ -27,7 +27,7 @@ class SubtopicsModel(BaseModel):
 
 class QAPair(BaseModel):
     question: str
-    answer: str
+    a: str
 
 
 class QAList(BaseModel):
@@ -87,7 +87,7 @@ def generate_qa_for_subtopic(llm, vs, subtopic: str, n: int = 5) -> List[QAPair]
 
     parser = PydanticOutputParser(pydantic_object=QAList)
     template = """
-    Based on the following subtopic: "{subtopic}", generate 1-2 questions that reflect genuine
+    Based on the following subtopic: "{subtopic}", generate 5 questions that reflect genuine
     doubts a student might have while learning this topic.
 
     Requirements:
@@ -113,9 +113,10 @@ def generate_qa_for_subtopic(llm, vs, subtopic: str, n: int = 5) -> List[QAPair]
     try:
         parsed = parser.parse(result)
         print(f"Questions for Subtopic '{subtopic}':")
-        for q in parsed.questions:
-            print(f" - Q: {q.question}")
-            print(f"   A: {q.answer}")
+        print(parsed.questions)
+        # for q in parsed.questions:
+        #     print(f" - Q: {q.question}")
+        #     print(f"   A: {q.answer}")
         return parsed.questions
     except Exception as e:
         print(f"QA parsing failed for subtopic '{subtopic}':", e)

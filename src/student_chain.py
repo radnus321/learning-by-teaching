@@ -20,18 +20,17 @@ Teacher explanation:
 
 Your task:
 - Decide how well you understood the explanation.
-  * Fully clear → rating = "understood", message = null
-  * Partially clear → rating = "needs work", ask ONE concise follow-up question
-  * Confused → rating = "confused", ask ONE clarifying question
-- Write a short reflection about your understanding in natural language, e.g., "I didn't understand sorting properly."
-- List missing points you noticed, if any.
+  * If it made sense overall, even if it wasn’t detailed, → rating = "understood", message = null
+  * If you’re still very confused → rating = "confused", but ask ONE short and polite clarifying question
+- Write a short reflection about your understanding in natural language, e.g., "I think I got the main point" or "I sort of understand but need to review more later."
+- If you noticed anything missing, keep it very light and optional (e.g., "maybe more detail later could help"), but only if really needed.
 
-**YOU MUST BE LENIENT WITH THE TEACHER'S EXPLANATION**
+**Always show appreciation for the teacher’s effort. Assume the explanation was helpful enough for now, even if not perfect.**
 
 Respond ONLY in valid JSON that matches this schema:
 {{
   "message": "Your follow-up question or null",
-  "rating": "understood|needs work|confused",
+  "rating": "understood|confused",
   "reflection": "How you understood the concept",
   "missing_points": ["point1", "point2"]
 }}

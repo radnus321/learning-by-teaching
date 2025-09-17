@@ -121,7 +121,7 @@ async def start():
     # Step 1: Show main topics
     actions = [cl.Action(name=t, payload={"value": t}, label=t) for t in catalog.keys()]
     actions_res = await cl.AskActionMessage(
-        content="📚 Here are the available topics. Please choose one:",
+        content="📚 Here are the available subjects. Please choose one:",
         actions=actions
     ).send()
 
@@ -137,7 +137,11 @@ async def start():
 
     # Step 2: Build chains + vectorstore for chosen topic
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
+    evaluator_chain = build_evaluator_chain(llm)
+    scorer_chain = build_scorer_chain(llm)
     cl.user_session.set("student_chain", student_chain)
+    cl.user_session.set("evaluator_chain", evaluator_chain)
+    cl.user_session.set("scorer_chain", scorer_chain)
 
     # Step 3: Generate subtopics (ONE API call)
     subtopics = generate_subtopics(llm, vs)  # returns list of 10 standard subtopics
@@ -146,7 +150,7 @@ async def start():
     # Step 4: Show subtopics to user and let them choose
     subtopic_actions = [cl.Action(name=s, payload={"value": s}, label=s) for s in subtopics]
     subtopic_res = await cl.AskActionMessage(
-        content=f"📖 Here are the subtopics for **{user_topic}**. Please choose one:",
+        content=f"📖 Here are the topics for **{user_topic}**. Please choose one:",
         actions=subtopic_actions
     ).send()
 
@@ -247,7 +251,7 @@ async def main(message: cl.Message):
     evaluator_llm_response = evaluator_chain.invoke({
         "expected_explanation": expected_answer,
         "teacher_explanation": teacher_explanation,
-        "student_question": qa_pool[qa_index].q,
+        "student_question": qa_pool[qa_index].question,
         "student_followup_question": student_model.message,
         "student_response": student_model.json()
     })
@@ -264,7 +268,7 @@ async def main(message: cl.Message):
     # 4️⃣ Scorer computes metrics
     scorer_llm_response = scorer_chain.invoke({
         "teacher_explanation": teacher_explanation,
-        "student_question": qa_pool[qa_index].q,
+        "student_question": qa_pool[qa_index].question,
         "student_followup_question": student_model.message,
         "student_response": student_model.json(),
         "evaluator_comments": evaluator_model.json()
@@ -283,11 +287,12 @@ async def main(message: cl.Message):
         await message.send()
         session_memory.chat_memory.add_ai_message(message.content)
     else:
+        print("MOVING TO NEXT QUESTION IN LIST")
         message = cl.Message(content="👩‍🎓 Student: I think I understood this topic.")
         await message.send()
         session_memory.chat_memory.add_ai_message(message.content)
         qa_index += 1
         cl.user_session.set("qa_index", qa_index)
         if qa_index < len(qa_pool):
-            next_q = qa_pool[qa_index].q
+            next_q = qa_pool[qa_index].question
             await cl.Message(content=f"👩‍🎓 Student: {next_q}").send()
