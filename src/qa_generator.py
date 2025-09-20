@@ -68,7 +68,6 @@ def generate_subtopics(llm, vs, n: int = 10) -> List[str]:
 
     try:
         parsed = parser.parse(result)
-        print("Generated Subtopics:", parsed.topics)
         return parsed.topics
     except Exception as e:
         print("Subtopic parsing failed:", e)
@@ -112,11 +111,6 @@ def generate_qa_for_subtopic(llm, vs, subtopic: str, n: int = 5) -> List[QAPair]
 
     try:
         parsed = parser.parse(result)
-        print(f"Questions for Subtopic '{subtopic}':")
-        print(parsed.questions)
-        # for q in parsed.questions:
-        #     print(f" - Q: {q.question}")
-        #     print(f"   A: {q.answer}")
         return parsed.questions
     except Exception as e:
         print(f"QA parsing failed for subtopic '{subtopic}':", e)

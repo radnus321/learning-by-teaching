@@ -6,8 +6,8 @@ from chainlit.input_widget import Select
 from dotenv import load_dotenv
 from student_chain import build_student_chain
 from evaluator_chain import build_evaluator_chain
-from scorer_chain import build_scorer_chain
-from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse, get_llm
+from scorer_chain import build_scorer_chain, build_final_scorer_chain
+from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse, FinalScorerResponse, get_llm
 from langchain.memory import ConversationBufferMemory
 from typing import Optional
 from pathlib import Path
@@ -22,6 +22,7 @@ from memory import (
         save_scorer,
         fetch_session_interaction_ids,
         fetch_student_memory,
+        fetch_session_scores
 )
 from qa_generator import generate_qa_for_subtopic, generate_subtopics, load_catalog
 
@@ -32,7 +33,48 @@ CATALOG_PATH = VS_DIR / "catalog.json"
 
 
 def stop_input():
-    cl.use_audio.endConversation()
+    try:
+        cl.use_audio.endConversation()
+    except Exception as e:
+        print(e)
+
+
+def format_final_score(result: dict) -> str:
+    md = f"""
+# 📝 Final Evaluation
+
+**Overall Score:** {result.overall_score:.2f}
+
+---
+
+## 📊 Subscores
+- Teacher Clarity: **{result.teacher_clarity:.2f}**
+- Teacher Completeness: **{result.teacher_completeness:.2f}**
+- Student Understanding: **{result.student_understanding:.2f}**
+- Student Engagement: **{result.student_engagement:.2f}**
+
+---
+
+## 💡 Strengths
+"""  
+    for s in result.comments.get("strengths", []):
+        md += f"- {s}\n"
+
+    md += "\n## 🔧 Improvements\n"
+    for i in result.comments.get("improvements", []):
+        md += f"- {i}\n"
+
+    md += "\n## 🏁 Summary\n"
+    for s in result.comments.get("summary", []):
+        md += f"- {s}\n"
+
+    return md.strip()
+
+
+async def present_final_score(result: dict):
+    """Send the final evaluation in a nice markdown format to Chainlit UI."""
+    md_output = format_final_score(result)
+    await cl.Message(content=md_output).send()
 
 
 # ------------------- AUTH ------------------- #
@@ -67,9 +109,11 @@ async def setup_agent(settings):
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
     evaluator_chain = build_evaluator_chain(llm)
     scorer_chain = build_scorer_chain(llm)
+    final_scorer_chain = build_final_scorer_chain(llm)
     cl.user_session.set("student_chain", student_chain)
     cl.user_session.set("evaluator_chain", evaluator_chain)
     cl.user_session.set("scorer_chain", scorer_chain)
+    cl.user_session.set("final_scorer_chain", final_scorer_chain)
 
 
 # ------------------- ON CHAT RESUME --------------- #
@@ -145,9 +189,11 @@ async def start():
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
     evaluator_chain = build_evaluator_chain(llm)
     scorer_chain = build_scorer_chain(llm)
+    final_scorer_chain = build_final_scorer_chain(llm)
     cl.user_session.set("student_chain", student_chain)
     cl.user_session.set("evaluator_chain", evaluator_chain)
     cl.user_session.set("scorer_chain", scorer_chain)
+    cl.user_session.set("final_scorer_chain", final_scorer_chain)
 
     # Step 3: Generate subtopics (ONE API call)
     subtopics = generate_subtopics(llm, vs)  # returns list of 10 standard subtopics
@@ -272,7 +318,6 @@ async def main(message: cl.Message):
 
     save_evaluator(interaction_id, evaluator_model)
 
-
     # 4️⃣ Scorer computes metrics
     scorer_llm_response = scorer_chain.invoke({
         "teacher_explanation": teacher_explanation,
@@ -291,7 +336,6 @@ async def main(message: cl.Message):
 
     # 5️⃣ Continue conversation
     if student_model.message and followup_count < 3:
-        cl.use_audio().endConversation()
         followup_count += 1
         message = cl.Message(content=f"👩‍🎓 Student: {student_model.message}")
         await message.send()
@@ -300,13 +344,26 @@ async def main(message: cl.Message):
         if qa_index >= len(qa_pool):
             message = cl.Message(content="👩‍🎓 Student: Thank you for clarifying all my questions!")
             stop_input()
-        followup_count = 0
-        message = cl.Message(content="👩‍🎓 Student: I have another question!")
-        await message.send()
-        session_memory.chat_memory.add_ai_message(message.content)
-        qa_index += 1
-        cl.user_session.set("qa_index", qa_index)
-        if qa_index < len(qa_pool):
-            next_q = qa_pool[qa_index].question
-            await cl.Message(content=f"👩‍🎓 Student: {next_q}").send()
+            final_scorer_chain = cl.user_session.get("final_scorer_chain")
+            interaction_scores = fetch_session_scores(session_id)
+            print(interaction_scores)
+            final_scorer_response = final_scorer_chain.invoke({
+                "interaction_scores": interaction_scores
+            })
+            if isinstance(final_scorer_response['text'], FinalScorerResponse):
+                final_scorer_model = final_scorer_response['text']
+            else:
+                final_scorer_model = FinalScorerResponse.parse_raw(final_scorer_response)
+            await present_final_score(final_scorer_model)
+            stop_input()
+        else:
+            followup_count = 0
+            message = cl.Message(content="👩‍🎓 Student: I have another question!")
+            await message.send()
+            session_memory.chat_memory.add_ai_message(message.content)
+            qa_index += 1
+            cl.user_session.set("qa_index", qa_index)
+            if qa_index < len(qa_pool):
+                next_q = qa_pool[qa_index].question
+                await cl.Message(content=f"👩‍🎓 Student: {next_q}").send()
     cl.user_session.set("followup_count", followup_count)

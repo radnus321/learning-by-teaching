@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Literal
+from typing import Dict, List, Optional, Literal
 from pydantic import BaseModel, confloat
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -58,3 +58,17 @@ class ScorerResponse(BaseModel):
     student_engagement: confloat(ge=0.0, le=1.0)
     # Comments are required, even if empty
     comments: List[str]
+
+
+# -------------------------------
+# Final Score
+# -------------------------------
+class FinalScorerResponse(BaseModel):
+    overall_score: confloat(ge=0.0, le=1.0)
+    # Aggregated subscores (session-wide, 0.0–1.0)
+    teacher_clarity: confloat(ge=0.0, le=1.0)
+    teacher_completeness: confloat(ge=0.0, le=1.0)
+    student_understanding: confloat(ge=0.0, le=1.0)
+    student_engagement: confloat(ge=0.0, le=1.0)
+    # Structured feedback
+    comments: Dict[str, List[str]]

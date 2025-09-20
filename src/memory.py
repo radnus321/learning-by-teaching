@@ -96,3 +96,11 @@ def fetch_student_memory(session_interaction_ids: list):
     )
     student_memory = [StudentResponse(**doc) for doc in student_memory_docs]
     return student_memory
+
+
+def fetch_session_scores(session_id: str):
+    session_interaction_ids = fetch_session_interaction_ids(session_id)
+    session_scores = scorer_collection.find(
+            {"_id": {"$in": session_interaction_ids}}
+    )
+    return list(session_scores)
