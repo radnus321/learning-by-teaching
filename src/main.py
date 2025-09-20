@@ -29,6 +29,12 @@ from qa_generator import generate_qa_for_subtopic, generate_subtopics, load_cata
 load_dotenv()
 VS_DIR = VS_DIR = Path(os.getenv("VS_DIR", Path(__file__).resolve().parents[1] / "vectorstore"))
 CATALOG_PATH = VS_DIR / "catalog.json"
+
+
+def stop_input():
+    cl.use_audio.endConversation()
+
+
 # ------------------- AUTH ------------------- #
 
 
@@ -170,6 +176,7 @@ async def start():
     cl.user_session.set("qa_index", 0)
     cl.user_session.set("topic", user_topic)
     cl.user_session.set("subtopic", chosen_subtopic)
+    cl.user_session.set("followup_count", 0)
     session_memory = cl.user_session.get("session_memory")
 
     # Step 7: Kick off conversation
@@ -219,6 +226,7 @@ async def main(message: cl.Message):
     scorer_chain = cl.user_session.get("scorer_chain")
     qa_pool = cl.user_session.get("qa_pool", [])
     qa_index = cl.user_session.get("qa_index", 0)
+    followup_count = cl.user_session.get("followup_count", 0)
     # Fetch all previous interactions of this session 
     session_interaction_ids = fetch_session_interaction_ids(session_id)
 
@@ -282,13 +290,18 @@ async def main(message: cl.Message):
     save_scorer(interaction_id, scorer_model)
 
     # 5️⃣ Continue conversation
-    if student_model.message:
+    if student_model.message and followup_count < 3:
+        cl.use_audio().endConversation()
+        followup_count += 1
         message = cl.Message(content=f"👩‍🎓 Student: {student_model.message}")
         await message.send()
         session_memory.chat_memory.add_ai_message(message.content)
     else:
-        print("MOVING TO NEXT QUESTION IN LIST")
-        message = cl.Message(content="👩‍🎓 Student: I think I understood this topic.")
+        if qa_index >= len(qa_pool):
+            message = cl.Message(content="👩‍🎓 Student: Thank you for clarifying all my questions!")
+            stop_input()
+        followup_count = 0
+        message = cl.Message(content="👩‍🎓 Student: I have another question!")
         await message.send()
         session_memory.chat_memory.add_ai_message(message.content)
         qa_index += 1
@@ -296,3 +309,4 @@ async def main(message: cl.Message):
         if qa_index < len(qa_pool):
             next_q = qa_pool[qa_index].question
             await cl.Message(content=f"👩‍🎓 Student: {next_q}").send()
+    cl.user_session.set("followup_count", followup_count)
