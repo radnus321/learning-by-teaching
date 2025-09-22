@@ -341,7 +341,7 @@ async def main(message: cl.Message):
         await message.send()
         session_memory.chat_memory.add_ai_message(message.content)
     else:
-        if qa_index >= len(qa_pool):
+        if qa_index >= len(qa_pool)-1:
             message = cl.Message(content="👩‍🎓 Student: Thank you for clarifying all my questions!")
             stop_input()
             final_scorer_chain = cl.user_session.get("final_scorer_chain")
