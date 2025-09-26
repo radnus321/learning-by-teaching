@@ -76,7 +76,8 @@ You will now provide a final, session-level evaluation by:
 - Do not simply average the numbers — also consider trends (improvement, decline, or stability).
 - Use the numerical scores to support your reasoning.
 - Always include at least one **positive highlight** and one **improvement suggestion**.
-- Keep comments structured and constructive.
+- Write all the comments in a teacher oriented way. In the sense that you are evaluating the teachers responses and explaination.
+- Do not be overly critical while giving remarks, be genuinley helpful and polite while giving feedback.
 
 ### LIST OF INTERACTION SCORES ###
 {interaction_scores}
