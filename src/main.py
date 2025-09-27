@@ -41,20 +41,7 @@ def stop_input():
 
 def format_final_score(result: dict) -> str:
     md = f"""
-# 📝 Final Evaluation
-
-**Overall Score:** {result.overall_score:.2f}
-
----
-
-## 📊 Subscores
-- Teacher Clarity: **{result.teacher_clarity:.2f}**
-- Teacher Completeness: **{result.teacher_completeness:.2f}**
-- Student Understanding: **{result.student_understanding:.2f}**
-- Student Engagement: **{result.student_engagement:.2f}**
-
----
-
+# 📝 Final Remarks
 ## 💡 Strengths
 """  
     for s in result.comments.get("strengths", []):
