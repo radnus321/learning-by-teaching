@@ -196,7 +196,8 @@ async def start():
     cl.user_session.set("final_scorer_chain", final_scorer_chain)
 
     # Step 3: Generate subtopics (ONE API call)
-    subtopics = generate_subtopics(llm, vs)  # returns list of 10 standard subtopics
+    # subtopics = generate_subtopics(llm, vs)  # returns list of 10 standard subtopics
+    subtopics = catalog[user_topic]["topics"]
     cl.user_session.set("subtopics", subtopics)
 
     # Step 4: Show subtopics to user and let them choose
