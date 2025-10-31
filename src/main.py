@@ -134,7 +134,7 @@ async def start():
                 id="Model",
                 label="Select Model",
                 values=["openai/gpt-4o", "anthropic/claude-3.7-sonnet",
-                        "google/gemini-2.5-pro"],
+                        "google/gemini-2.5-pro", "meta-llama/llama-4-maverick","qwen/qwen3-vl-32b-instruct", "mistralai/mixtral-8x22b-instruct"],
                 initial_index=0
             )
         ]
