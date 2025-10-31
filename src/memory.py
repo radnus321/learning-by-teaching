@@ -38,11 +38,12 @@ def create_session(user_id: str):
     return session_id
 
 
-def create_interaction(session_id: str) -> str:
+def create_interaction(session_id: str, model_choice: str) -> str:
     """Create a new interaction entry for a user."""
     interaction_id = str(uuid.uuid4())
     interaction_collection.insert_one({
         "_id": interaction_id,
+        "model": model_choice,
         "session_id": session_id,
         "timestamp": datetime.utcnow()
     })

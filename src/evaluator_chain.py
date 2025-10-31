@@ -1,6 +1,5 @@
-from langchain.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from models import EvaluatorResponse 
 
 evaluator_prompt= """
@@ -48,12 +47,6 @@ def build_evaluator_chain(llm):
     prompt = ChatPromptTemplate.from_template(
        evaluator_prompt
     ).partial(format_instructions=parser.get_format_instructions())
-
-    chain = LLMChain(
-        llm=llm,
-        prompt=prompt,
-        output_parser=parser,
-        verbose=True
-    )
+    chain = prompt | llm | parser
 
     return chain

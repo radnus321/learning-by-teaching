@@ -1,6 +1,5 @@
-from langchain.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from models import ScorerResponse, FinalScorerResponse
 from dotenv import load_dotenv 
 
@@ -53,7 +52,7 @@ def build_scorer_chain(llm):
         format_instructions=parser.get_format_instructions()
     )
 
-    chain = LLMChain(llm=llm, prompt=prompt, output_parser=parser)
+    chain = prompt | llm | parser
     return chain
 
 
@@ -106,5 +105,5 @@ def build_final_scorer_chain(llm):
             format_instructions=parser.get_format_instructions()
     )
 
-    chain = LLMChain(llm=llm, prompt=prompt, output_parser=parser)
+    chain = prompt | llm | parser
     return chain

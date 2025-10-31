@@ -1,9 +1,8 @@
 import os
 import json
 from typing import List
-from langchain.chains import LLMChain
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pathlib import Path
@@ -63,7 +62,8 @@ def generate_subtopics(llm, vs, n: int = 10) -> List[str]:
     prompt = ChatPromptTemplate.from_template(template).partial(
         format_instructions=parser.get_format_instructions()
     )
-    chain = LLMChain(llm=llm, prompt=prompt)
+    # chain = LLMChain(llm=llm, prompt=prompt)
+    chain = llm | prompt
     result = chain.run(context=context)
 
     try:
@@ -138,13 +138,12 @@ def generate_qa_for_subtopic(llm, vs, subtopic: str, n: int = 5) -> List[QAPair]
         subtopic=subtopic,
         format_instructions=parser.get_format_instructions()
     )
-    chain = LLMChain(llm=llm, prompt=prompt)
-    result = chain.run(context=context)
+    chain = prompt | llm | parser
+    result = chain.invoke({ "context":context })
 
     try:
-        parsed = parser.parse(result)
-        print(parsed)
-        return parsed.questions
+        print(result.questions)
+        return result.questions
     except Exception as e:
         print(f"QA parsing failed for subtopic '{subtopic}':", e)
         return []

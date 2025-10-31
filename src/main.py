@@ -9,7 +9,6 @@ from student_chain import build_student_chain
 from evaluator_chain import build_evaluator_chain
 from scorer_chain import build_scorer_chain, build_final_scorer_chain
 from models import StudentResponse, TeacherResponse, EvaluatorResponse, ScorerResponse, FinalScorerResponse, get_llm
-from langchain.memory import ConversationBufferMemory
 from typing import Optional
 from pathlib import Path
 import json
@@ -104,20 +103,6 @@ async def setup_agent(settings):
     cl.user_session.set("final_scorer_chain", final_scorer_chain)
 
 
-# ------------------- ON CHAT RESUME --------------- #
-@cl.on_chat_resume
-async def on_chat_resume(thread):
-    session_memory = ConversationBufferMemory(return_messages=True)
-    root_messages = [m for m in thread["steps"] if m["parentId"] == None]
-    for message in root_messages:
-        if message["type"] == "user_message":
-            session_memory.chat_memory.add_user_message(message["output"])
-        else:
-            session_memory.chat_memory.add_ai_message(message["output"])
-
-    cl.user_session.set("session_memory", session_memory)
-
-
 # ------------------- CHAT START ------------------- #
 
 @cl.on_chat_start
@@ -126,7 +111,7 @@ async def start():
     user = cl.user_session.get("user")
     session_id = create_session(user.identifier)
     cl.user_session.set("session_id", session_id)
-    cl.user_session.set("session_memory", ConversationBufferMemory(return_messages=True))
+    # cl.user_session.set("session_memory", ConversationBufferMemory(return_messages=True))
     await cl.Message(
         content=(
             "## 👋 Welcome to Learning by Teaching!  \n\n"
@@ -197,7 +182,6 @@ async def start():
     cl.user_session.set("final_scorer_chain", final_scorer_chain)
 
     # Step 3: Generate subtopics (ONE API call)
-    # subtopics = generate_subtopics(llm, vs)  # returns list of 10 standard subtopics
     subtopics = catalog[user_topic]["topics"]
     cl.user_session.set("subtopics", subtopics)
 
@@ -225,7 +209,6 @@ async def start():
     cl.user_session.set("topic", user_topic)
     cl.user_session.set("subtopic", chosen_subtopic)
     cl.user_session.set("followup_count", 0)
-    session_memory = cl.user_session.get("session_memory")
 
     # Step 7: Kick off conversation
     if qa_pool:
@@ -235,14 +218,12 @@ async def start():
                     f"Here’s my first question:\n\n{first_q}"
         )
         await message.send()
-        session_memory.chat_memory.add_ai_message(message.content)
+        # session_memory.chat_memory.add_ai_message(message.content)
     else:
         message = cl.Message(
             content=f"👩‍🎓 Student: I don’t have any questions for {chosen_subtopic} yet."
         )
         await message.send()
-        session_memory.chat_memory.add_ai_message(message.content)
-
 
 
 # ------------------- MAIN LOOP ------------------- #
@@ -251,7 +232,6 @@ async def main(message: cl.Message):
     """Handle teacher input, student response, evaluation, and scoring."""
     cl_user = cl.user_session.get("user")  # Chainlit User object
     session_id = cl.user_session.get("session_id")
-    session_memory = cl.user_session.get("session_memory")
     if not cl_user:
         await cl.Message(content="❌ User not authenticated.").send()
         return
@@ -279,13 +259,12 @@ async def main(message: cl.Message):
     session_interaction_ids = fetch_session_interaction_ids(session_id)
 
     # Create new interaction entry
-    interaction_id = create_interaction(session_id)
+    interaction_id = create_interaction(session_id, model_choice)
 
     # 1️⃣ Teacher provides explanation
     teacher_explanation = message.content
     teacher_model = TeacherResponse(message=teacher_explanation)
     save_teacher(interaction_id, teacher_model)
-    session_memory.chat_memory.add_user_message(teacher_explanation)
 
     # Expected answer from QA pool
     expected_answer = qa_pool[qa_index].a if qa_index < len(qa_pool) else ""
@@ -296,8 +275,8 @@ async def main(message: cl.Message):
         "student_memory": student_memory
     })
 
-    if isinstance(student_llm_response['text'], StudentResponse):
-        student_model = student_llm_response['text']
+    if isinstance(student_llm_response, StudentResponse):
+        student_model = student_llm_response
     else:
         student_model = StudentResponse.parse_raw(student_llm_response['text'])
 
@@ -312,8 +291,8 @@ async def main(message: cl.Message):
         "student_response": student_model.json()
     })
 
-    if isinstance(evaluator_llm_response['text'], EvaluatorResponse):
-        evaluator_model = evaluator_llm_response['text']
+    if isinstance(evaluator_llm_response, EvaluatorResponse):
+        evaluator_model = evaluator_llm_response
     else:
         evaluator_model = EvaluatorResponse.parse_raw(
             evaluator_llm_response['text'])
@@ -329,8 +308,8 @@ async def main(message: cl.Message):
         "evaluator_comments": evaluator_model.json()
     })
 
-    if isinstance(scorer_llm_response['text'], ScorerResponse):
-        scorer_model = scorer_llm_response['text']
+    if isinstance(scorer_llm_response, ScorerResponse):
+        scorer_model = scorer_llm_response
     else:
         scorer_model = ScorerResponse.parse_raw(scorer_llm_response)
 
@@ -341,7 +320,6 @@ async def main(message: cl.Message):
         followup_count += 1
         message = cl.Message(content=f"👩‍🎓 Student: {student_model.message}")
         await message.send()
-        session_memory.chat_memory.add_ai_message(message.content)
     else:
         if qa_index >= len(qa_pool)-1:
             message = cl.Message(content="👩‍🎓 Student: Thank you for clarifying all my questions!")
@@ -352,8 +330,8 @@ async def main(message: cl.Message):
             final_scorer_response = final_scorer_chain.invoke({
                 "interaction_scores": interaction_scores
             })
-            if isinstance(final_scorer_response['text'], FinalScorerResponse):
-                final_scorer_model = final_scorer_response['text']
+            if isinstance(final_scorer_response, FinalScorerResponse):
+                final_scorer_model = final_scorer_response
             else:
                 final_scorer_model = FinalScorerResponse.parse_raw(final_scorer_response)
             await present_final_score(final_scorer_model)
@@ -368,7 +346,6 @@ async def main(message: cl.Message):
             ]
             message = cl.Message(content=connectors[random.randint(0, len(connectors)-1)])
             await message.send()
-            session_memory.chat_memory.add_ai_message(message.content)
             qa_index += 1
             cl.user_session.set("qa_index", qa_index)
             if qa_index < len(qa_pool):

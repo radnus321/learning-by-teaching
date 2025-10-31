@@ -1,9 +1,8 @@
 import os
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from models import StudentResponse
 from dotenv import load_dotenv 
 
@@ -64,6 +63,6 @@ def build_student_chain(llm, topic: str, catalog: dict):
     )
 
     # Chain
-    chain = LLMChain(llm=llm, prompt=prompt, output_parser=parser)
+    chain = prompt | llm | parser
 
     return chain, vs
