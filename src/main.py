@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 import uuid
 import chainlit as cl
@@ -126,6 +127,19 @@ async def start():
     session_id = create_session(user.identifier)
     cl.user_session.set("session_id", session_id)
     cl.user_session.set("session_memory", ConversationBufferMemory(return_messages=True))
+    await cl.Message(
+        content=(
+            "## 👋 Welcome to Learning by Teaching!  \n\n"
+            "This interactive platform lets you **learn concepts by teaching an AI student**. "
+            "You’ll take on the role of a *teacher*, explaining topics and answering questions.  \n\n"
+            "Here’s how it works:\n"
+            "🧑‍🏫 **You Teach** – Explain the concept clearly to the AI student.\n"
+            "🧠 **AI Learner Responds** – The student may ask doubts or challenge your explanation.\n"
+            "💡 The goal is to reinforce your own understanding by teaching effectively!\n\n"
+            "When you’re ready, type `start` or select a topic to begin your teaching session."
+            "\n **Tip:** You can change the model anytime using the **⚙️** icon in the chat bar."
+        )
+    ).send()
     await cl.Message(content=f"Welcome, {user.display_name or user.identifier}!").send()
 
     settings = await cl.ChatSettings(
@@ -346,7 +360,13 @@ async def main(message: cl.Message):
             stop_input()
         else:
             followup_count = 0
-            message = cl.Message(content="👩‍🎓 Student: I have another question!")
+            connectors = [
+                "Can I ask you one more thing?",
+                "Hmm, I’ve got another question for you!",
+                "Hold on, something just popped into my mind!",
+                "Oh! I just thought of another question!"
+            ]
+            message = cl.Message(content=connectors[random.randint(0, len(connectors)-1)])
             await message.send()
             session_memory.chat_memory.add_ai_message(message.content)
             qa_index += 1
