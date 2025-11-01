@@ -121,7 +121,7 @@ async def start():
             "🧑‍🏫 **You Teach** – Explain the concept clearly to the AI student.\n"
             "🧠 **AI Learner Responds** – The student may ask doubts or challenge your explanation.\n"
             "💡 The goal is to reinforce your own understanding by teaching effectively!\n\n"
-            "When you’re ready, type `start` or select a topic to begin your teaching session."
+            "When you’re ready, select a topic to begin your teaching session."
             "\n **Tip:** You can change the model anytime using the **⚙️** icon in the chat bar."
         )
     ).send()
