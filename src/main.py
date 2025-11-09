@@ -90,7 +90,7 @@ async def setup_agent(settings):
     current_model = settings["Model"]
     print("Updated Model to: ", current_model)
     llm = get_llm(current_model)
-    cl.user_session.set("llm", llm)
+    cl.user_session.set("llm", current_model)
     user_topic = cl.user_session.get("topic")
     catalog = cl.user_session.get("catalog")
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
@@ -133,7 +133,7 @@ async def start():
                 id="Model",
                 label="Select Model",
                 values=["openai/gpt-4o", "anthropic/claude-3.7-sonnet",
-                        "google/gemini-2.5-pro", "meta-llama/llama-4-maverick","qwen/qwen3-vl-32b-instruct", "mistralai/mixtral-8x22b-instruct"],
+                        "google/gemini-2.5-pro", "meta-llama/llama-4-maverick","qwen/qwen3-vl-8b-instruct", "mistralai/mixtral-8x22b-instruct"],
                 initial_index=0
             )
         ]
@@ -236,7 +236,7 @@ async def main(message: cl.Message):
         await cl.Message(content="❌ User not authenticated.").send()
         return
 
-    model_choice = cl.user_session.get("model", "gemini-1.5-flash")
+    model_choice = cl.user_session.get("llm")
 
     print(model_choice)
 
