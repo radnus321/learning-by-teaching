@@ -89,7 +89,7 @@ async def setup_agent(settings):
     print("Updated Model to: ", current_model)
     llm = get_llm(current_model)
     cl.user_session.set("llm", llm)
-    cl.user_ession.set("model_choice", current_model)
+    cl.user_session.set("model_choice", current_model)
     user_topic = cl.user_session.get("topic")
     catalog = cl.user_session.get("catalog")
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
