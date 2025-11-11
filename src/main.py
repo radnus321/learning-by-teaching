@@ -74,8 +74,6 @@ def oauth_callback(
     raw_user_data: dict,
     default_user: cl.User,
 ) -> Optional[cl.User]:
-    print("Provider: ", provider_id)
-    print("Raw user data: ", raw_user_data)
     if provider_id == "google":
         email = raw_user_data.get("email", "")
         if email.endswith("@pilani.bits-pilani.ac.in"):
@@ -90,7 +88,8 @@ async def setup_agent(settings):
     current_model = settings["Model"]
     print("Updated Model to: ", current_model)
     llm = get_llm(current_model)
-    cl.user_session.set("llm", current_model)
+    cl.user_session.set("llm", llm)
+    cl.user_ession.set("model_choice", current_model)
     user_topic = cl.user_session.get("topic")
     catalog = cl.user_session.get("catalog")
     student_chain, vs = build_student_chain(llm, user_topic, catalog)
@@ -111,7 +110,6 @@ async def start():
     user = cl.user_session.get("user")
     session_id = create_session(user.identifier)
     cl.user_session.set("session_id", session_id)
-    # cl.user_session.set("session_memory", ConversationBufferMemory(return_messages=True))
     await cl.Message(
         content=(
             "## 👋 Welcome to Learning by Teaching!  \n\n"
@@ -139,6 +137,7 @@ async def start():
         ]
     ).send()
     cl.user_session.set("llm", get_llm(settings["Model"]))
+    cl.user_session.set("model_choice", settings["Model"])
 
     # Load catalog
     if not CATALOG_PATH.exists():
@@ -236,9 +235,7 @@ async def main(message: cl.Message):
         await cl.Message(content="❌ User not authenticated.").send()
         return
 
-    model_choice = cl.user_session.get("llm")
-
-    print(model_choice)
+    model_choice = cl.user_session.get("model_choice")
 
     # Extract normalized fields
     user_id = cl_user.identifier
@@ -326,7 +323,6 @@ async def main(message: cl.Message):
             stop_input()
             final_scorer_chain = cl.user_session.get("final_scorer_chain")
             interaction_scores = fetch_session_scores(session_id)
-            print(interaction_scores)
             final_scorer_response = final_scorer_chain.invoke({
                 "interaction_scores": interaction_scores
             })

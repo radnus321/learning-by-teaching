@@ -142,7 +142,6 @@ def generate_qa_for_subtopic(llm, vs, subtopic: str, n: int = 5) -> List[QAPair]
     result = chain.invoke({ "context":context })
 
     try:
-        print(result.questions)
         return result.questions
     except Exception as e:
         print(f"QA parsing failed for subtopic '{subtopic}':", e)
